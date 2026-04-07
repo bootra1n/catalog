@@ -1,85 +1,41 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XV Catalog</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        body { font-family: -apple-system, sans-serif; background: #1a1a1a; color: white; margin: 0; padding: 15px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .card { background: #2c2c2c; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; }
-        .card img { width: 100%; border-radius: 8px; height: 140px; object-fit: cover; background: #000; }
-        .card h3 { font-size: 11px; margin: 10px 0; height: 32px; overflow: hidden; color: #eee; line-height: 1.2; }
-        .btn { display: block; background: #d4af37; color: black; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; width: 100%; }
-        #status { text-align: center; margin-top: 20px; color: #d4af37; font-size: 14px; }
-    </style>
-</head>
-<body>
-    <h2 style="text-align: center; color: #d4af37;">XV Catalog</h2>
-    <div id="status">Сканируем базу данных...</div>
-    <div class="grid" id="catalog"></div>
-
-    <script>
+<script>
         async function loadCatalog() {
-            const status = document.getElementById('status');
-            const container = document.getElementById('catalog');
-            
             try {
-                const response = await fetch('data.html');
-                if (!response.ok) throw new Error("Файл data.html не найден на сервере");
-                
-                const text = await response.text();
-                
-                // Ищем все ссылки на изображения (http...jpg/png/webp/etc)
-                const imgReg = /(https?:\/\/[^\s"']+\.(?:jpg|jpeg|png|webp|gif|bmp)[^\s"']*)/gi;
-                const images = text.match(imgReg) || [];
-                
-                // Ищем названия товаров (упрощенно: ищем текст в кавычках или между тегами)
-                // В гугл таблицах названия часто идут перед или после ссылок
-                const uniqueImages = [...new Set(images)]; 
-                
-                if (uniqueImages.length === 0) {
-                    status.innerText = "В файле data.html не найдено ссылок на картинки.";
-                    return;
-                }
+                const response = await fetch('data.csv');
+                const csvText = await response.text();
+                const rows = csvText.split('\n');
+                const container = document.getElementById('catalog');
+                container.innerHTML = '';
 
-                uniqueImages.forEach((img, index) => {
-                    // Создаем карточку. Так как вытащить точное название из каши Google сложно,
-                    // пока пометим их номерами или попробуем найти текст рядом
-                    const name = "Item #" + (index + 1);
-                    
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.innerHTML = `
-                        <img src="${img}" onerror="this.parentElement.style.display='none'">
-                        <h3>${name}</h3>
-                        <button class="btn" onclick="sendOrder('${img}')">Выбрать</button>
-                    `;
-                    container.appendChild(card);
+                rows.forEach(row => {
+                    const columns = row.split(';'); // Используем точку с запятой
+                    if (columns.length >= 2) {
+                        const name = columns[0].trim();
+                        const img = columns[1].trim();
+
+                        if (name && img.startsWith('http')) {
+                            const card = document.createElement('div');
+                            card.className = 'card';
+                            card.innerHTML = `
+                                <img src="${img}" onerror="this.src='https://via.placeholder.com/150'">
+                                <h3>${name}</h3>
+                                <button class="btn" onclick="sendOrder('${name}')">Выбрать</button>
+                            `;
+                            container.appendChild(card);
+                        }
+                    }
                 });
-
-                status.style.display = 'none';
-
+                document.getElementById('status').style.display = 'none';
             } catch (e) {
-                status.innerText = "Ошибка: " + e.message;
+                document.getElementById('status').innerText = "Ошибка: загрузите data.csv на GitHub";
             }
         }
-
-        function sendOrder(info) {
+        
+        function sendOrder(name) {
             if (window.Telegram && window.Telegram.WebApp) {
-                window.Telegram.WebApp.sendData("Выбран товар: " + info);
+                window.Telegram.WebApp.sendData(name);
                 window.Telegram.WebApp.close();
-            } else {
-                alert("Выбрано: " + info);
             }
         }
-
         loadCatalog();
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-        }
     </script>
-</body>
-</html>
