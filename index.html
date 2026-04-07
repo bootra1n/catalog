@@ -6,52 +6,107 @@
     <title>XV Fashion Catalog</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; background: #1a1a1a; color: white; margin: 0; padding: 15px; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background: #1a1a1a; color: white; margin: 0; padding: 15px; 
+        }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .card { background: #2c2c2c; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; }
-        .card img { width: 100%; border-radius: 8px; height: 140px; object-fit: cover; }
-        .card h3 { font-size: 14px; margin: 10px 0; height: 34px; overflow: hidden; color: #eee; }
-        .btn { display: block; background: #d4af37; color: black; padding: 10px; text-decoration: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .card { 
+            background: #2c2c2c; border-radius: 12px; padding: 10px; 
+            text-align: center; border: 1px solid #3d3d3d; 
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .card img { 
+            width: 100%; border-radius: 8px; height: 140px; 
+            object-fit: cover; background: #000; 
+        }
+        .card h3 { 
+            font-size: 13px; margin: 10px 0; height: 32px; 
+            overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
+            -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            color: #eee; line-height: 1.2;
+        }
+        .btn { 
+            display: block; background: #d4af37; color: black; 
+            padding: 10px; text-decoration: none; border-radius: 6px; 
+            font-weight: bold; font-size: 13px; cursor: pointer; border: none;
+        }
+        .btn:active { opacity: 0.8; transform: scale(0.98); }
+        #loader { text-align: center; margin-top: 50px; color: #d4af37; }
     </style>
 </head>
 <body>
-    <h2 style="text-align: center; color: #d4af37;">XV Fashion</h2>
-    <div class="grid" id="catalog">Загрузка...</div>
+    <h2 style="text-align: center; color: #d4af37; margin-bottom: 20px;">XV Fashion</h2>
+    <div id="loader">Загрузка коллекции...</div>
+    <div class="grid" id="catalog"></div>
 
     <script>
+        // Твоя прямая ссылка на CSV
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/1qlHWEkGHqrR_WT_g1-ogpKZn88c1xloEq5sDjszK3Kg/export?format=csv&gid=1947283332';
 
         async function loadCatalog() {
-            const response = await fetch(CSV_URL);
-            const data = await response.text();
-            const rows = data.split('\n').slice(1);
-            const container = document.getElementById('catalog');
-            container.innerHTML = '';
+            try {
+                const response = await fetch(CSV_URL);
+                const data = await response.text();
+                
+                // Разбиваем на строки
+                const rows = data.split('\n');
+                const container = document.getElementById('catalog');
+                const loader = document.getElementById('loader');
+                
+                container.innerHTML = '';
 
-            rows.forEach(row => {
-                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                if (cols.length < 2) return;
+                // Начинаем с 10-й строки (индекс 9)
+                for (let i = 9; i < rows.length; i++) {
+                    const row = rows[i].trim();
+                    if (!row) continue;
 
-                const name = cols[0].replace(/"/g, '');
-                const img = cols[1].replace(/"/g, '');
+                    // Парсим CSV (учитываем запятые в кавычках)
+                    const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    
+                    if (cols.length >= 2) {
+                        const name = cols[0].replace(/"/g, '').trim(); // Колонка A
+                        const img = cols[1].replace(/"/g, '').trim();  // Колонка B
 
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `
-                    <img src="${img}">
-                    <h3>${name}</h3>
-                    <div class="btn" onclick="order('${name}')">Выбрать</div>
-                `;
-                container.appendChild(card);
-            });
+                        // Пропускаем пустые или технические строки (CSS)
+                        if (!name || name.includes('{') || name.includes(':') || name.length < 2) continue;
+
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        card.innerHTML = `
+                            <img src="${img}" onerror="this.src='https://via.placeholder.com/150?text=No+Photo'">
+                            <h3>${name}</h3>
+                            <button class="btn" onclick="sendOrder('${name}')">Выбрать</button>
+                        `;
+                        container.appendChild(card);
+                    }
+                }
+                
+                loader.style.display = 'none';
+                
+                if (container.innerHTML === '') {
+                    loader.style.display = 'block';
+                    loader.innerText = 'Товары не найдены в таблице (начиная с 10 строки).';
+                }
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('loader').innerText = 'Ошибка соединения с базой данных';
+            }
         }
 
-        function order(name) {
-            window.Telegram.WebApp.sendData(name); // Отправляем ТОЛЬКО название
+        function sendOrder(productName) {
+            const tg = window.Telegram.WebApp;
+            // Отправляем название товара боту
+            tg.sendData(productName);
+            // Закрываем окно Web App
+            tg.close();
         }
 
+        // Инициализация
         loadCatalog();
         window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand(); // Разворачиваем на весь экран
     </script>
 </body>
 </html>
