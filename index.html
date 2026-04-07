@@ -8,88 +8,74 @@
     <style>
         body { font-family: -apple-system, sans-serif; background: #1a1a1a; color: white; margin: 0; padding: 15px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .card { background: #2c2c2c; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; display: flex; flex-direction: column; justify-content: space-between; }
+        .card { background: #2c2c2c; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; }
         .card img { width: 100%; border-radius: 8px; height: 140px; object-fit: cover; background: #000; }
-        .card h3 { font-size: 12px; margin: 10px 0; min-height: 30px; color: #eee; }
+        .card h3 { font-size: 11px; margin: 10px 0; height: 32px; overflow: hidden; color: #eee; line-height: 1.2; }
         .btn { display: block; background: #d4af37; color: black; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; width: 100%; }
-        #status { text-align: center; margin-top: 20px; color: #d4af37; }
+        #status { text-align: center; margin-top: 20px; color: #d4af37; font-size: 14px; }
     </style>
 </head>
 <body>
     <h2 style="text-align: center; color: #d4af37;">XV Catalog</h2>
-    <div id="status">Загрузка товаров из базы...</div>
+    <div id="status">Сканируем базу данных...</div>
     <div class="grid" id="catalog"></div>
 
     <script>
-        // Файл data.html должен лежать в той же папке на GitHub, что и этот index.html
-        const DATA_FILE = 'data.html'; 
-
         async function loadCatalog() {
+            const status = document.getElementById('status');
+            const container = document.getElementById('catalog');
+            
             try {
-                const response = await fetch(DATA_FILE);
-                if (!response.ok) throw new Error("Файл не найден");
+                const response = await fetch('data.html');
+                if (!response.ok) throw new Error("Файл data.html не найден на сервере");
                 
-                const htmlText = await response.text();
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(htmlText, 'text/html');
+                const text = await response.text();
                 
-                // Ищем все строки таблицы внутри сохраненного файла
-                const rows = doc.querySelectorAll('tr'); 
-                const container = document.getElementById('catalog');
-                container.innerHTML = '';
-
-                let count = 0;
-
-                rows.forEach((row) => {
-                    const cells = row.querySelectorAll('td');
-                    // Проверяем, что в строке есть хотя бы 2 колонки
-                    if (cells.length >= 2) {
-                        const name = cells[0].innerText.trim();
-                        let img = cells[1].innerText.trim();
-
-                        // Если ссылка спрятана в формуле IMAGE("..."), достаем её
-                        if (img.includes('IMAGE("')) {
-                            img = img.split('IMAGE("')[1].split('")')[0];
-                        }
-
-                        // Проверяем, что это не пустая строка и есть ссылка на фото
-                        if (name.length > 1 && img.startsWith('http')) {
-                            count++;
-                            const card = document.createElement('div');
-                            card.className = 'card';
-                            card.innerHTML = `
-                                <img src="${img}" onerror="this.src='https://via.placeholder.com/150?text=No+Photo'">
-                                <h3>${name}</h3>
-                                <button class="btn" onclick="sendOrder('${name}')">Выбрать</button>
-                            `;
-                            container.appendChild(card);
-                        }
-                    }
-                });
-
-                if (count === 0) {
-                    document.getElementById('status').innerText = "Товары не найдены в файле data.html";
-                } else {
-                    document.getElementById('status').style.display = 'none';
+                // Ищем все ссылки на изображения (http...jpg/png/webp/etc)
+                const imgReg = /(https?:\/\/[^\s"']+\.(?:jpg|jpeg|png|webp|gif|bmp)[^\s"']*)/gi;
+                const images = text.match(imgReg) || [];
+                
+                // Ищем названия товаров (упрощенно: ищем текст в кавычках или между тегами)
+                // В гугл таблицах названия часто идут перед или после ссылок
+                const uniqueImages = [...new Set(images)]; 
+                
+                if (uniqueImages.length === 0) {
+                    status.innerText = "В файле data.html не найдено ссылок на картинки.";
+                    return;
                 }
 
+                uniqueImages.forEach((img, index) => {
+                    // Создаем карточку. Так как вытащить точное название из каши Google сложно,
+                    // пока пометим их номерами или попробуем найти текст рядом
+                    const name = "Item #" + (index + 1);
+                    
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.innerHTML = `
+                        <img src="${img}" onerror="this.parentElement.style.display='none'">
+                        <h3>${name}</h3>
+                        <button class="btn" onclick="sendOrder('${img}')">Выбрать</button>
+                    `;
+                    container.appendChild(card);
+                });
+
+                status.style.display = 'none';
+
             } catch (e) {
-                console.error(e);
-                document.getElementById('status').innerText = "Ошибка: загрузите файл data.html в репозиторий!";
+                status.innerText = "Ошибка: " + e.message;
             }
         }
 
-        function sendOrder(name) {
+        function sendOrder(info) {
             if (window.Telegram && window.Telegram.WebApp) {
-                window.Telegram.WebApp.sendData(name);
+                window.Telegram.WebApp.sendData("Выбран товар: " + info);
                 window.Telegram.WebApp.close();
             } else {
-                alert("Заказ: " + name + " (Работает только внутри Telegram)");
+                alert("Выбрано: " + info);
             }
         }
 
         loadCatalog();
-        
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
