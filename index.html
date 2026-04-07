@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XV Fashion Catalog</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #1a1a1a; color: white; margin: 0; padding: 15px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .card { background: #2c2c2c; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; }
+        .card img { width: 100%; border-radius: 8px; height: 140px; object-fit: cover; }
+        .card h3 { font-size: 14px; margin: 10px 0; height: 34px; overflow: hidden; color: #eee; }
+        .btn { display: block; background: #d4af37; color: black; padding: 10px; text-decoration: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2 style="text-align: center; color: #d4af37;">XV Fashion</h2>
+    <div class="grid" id="catalog">Загрузка...</div>
+
+    <script>
+        const CSV_URL = 'ТВОЯ_ССЫЛКА_НА_CSV';
+
+        async function loadCatalog() {
+            const response = await fetch(CSV_URL);
+            const data = await response.text();
+            const rows = data.split('\n').slice(1);
+            const container = document.getElementById('catalog');
+            container.innerHTML = '';
+
+            rows.forEach(row => {
+                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                if (cols.length < 2) return;
+
+                const name = cols[0].replace(/"/g, '');
+                const img = cols[1].replace(/"/g, '');
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <img src="${img}">
+                    <h3>${name}</h3>
+                    <div class="btn" onclick="order('${name}')">Выбрать</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function order(name) {
+            window.Telegram.WebApp.sendData(name); // Отправляем ТОЛЬКО название
+        }
+
+        loadCatalog();
+        window.Telegram.WebApp.ready();
+    </script>
+</body>
+</html>
