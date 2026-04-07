@@ -3,85 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>XV Store</title>
+    <title>XV Concierge</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --main-color: #d4af37; --bg-color: #1a1a1a; --card-bg: #2c2c2c; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg-color); color: white; margin: 0; padding: 10px; -webkit-user-select: none; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 20px; }
-        .card { background: var(--card-bg); border-radius: 12px; padding: 8px; text-align: center; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; }
-        .card img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; background: #000; }
-        .card h3 { font-size: 12px; margin: 8px 0; height: 34px; overflow: hidden; color: #ccc; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-        .btn { background: var(--main-color); color: black; border: none; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; width: 100%; transition: 0.2s; }
-        .btn:active { transform: scale(0.95); opacity: 0.8; }
-        #loading { text-align: center; margin-top: 50px; color: var(--main-color); font-weight: bold; }
+        :root { --gold: #D4AF37; --black: #000; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: var(--black); color: white; margin: 0; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; overflow: hidden; text-align: center;
+        }
+
+        .logo { font-size: 40px; font-weight: 200; letter-spacing: 10px; color: var(--gold); margin-bottom: 10px; }
+        .divider { width: 40px; height: 1px; background: var(--gold); margin-bottom: 20px; }
+        
+        .main-text { font-size: 18px; font-weight: 300; letter-spacing: 1px; margin-bottom: 5px; }
+        .sub-text { font-size: 12px; color: #666; margin-bottom: 40px; padding: 0 40px; line-height: 1.5; }
+
+        .step-box { background: #111; border: 1px solid #222; padding: 20px; border-radius: 15px; margin-bottom: 30px; width: 80%; }
+        .step { font-size: 11px; color: var(--gold); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; }
+        .step-desc { font-size: 13px; color: #ccc; }
+
+        .action-btn { 
+            background: var(--gold); color: black; border: none; 
+            padding: 18px 40px; border-radius: 50px; 
+            font-weight: 700; font-size: 14px; text-transform: uppercase; 
+            letter-spacing: 2px; cursor: pointer; transition: 0.3s;
+        }
+        .action-btn:active { transform: scale(0.95); opacity: 0.8; }
     </style>
 </head>
 <body>
 
-    <div id="loading">ЗАГРУЗКА КАТАЛОГА...</div>
-    <div class="grid" id="catalog"></div>
+    <div class="logo">XV</div>
+    <div class="divider"></div>
+    
+    <div class="main-text">PERSONAL CONCIERGE</div>
+    <div class="sub-text">Найдем любую вещь по фото. Лучшие батчи, прямая доставка с Mulebuy.</div>
+
+    <div class="step-box">
+        <div class="step">Инструкция</div>
+        <div class="step-desc">Пришлите фото или ссылку на товар в чат, и мы найдем лучшую цену за 5 минут.</div>
+    </div>
+
+    <button class="action-btn" onclick="startOrder()">Отправить запрос</button>
 
     <script>
-        // Инициализация Telegram WebApp
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
 
-        async function loadData() {
-            const container = document.getElementById('catalog');
-            const loader = document.getElementById('loading');
-
-            try {
-                // Пытаемся загрузить ваш CSV файл
-                const response = await fetch('data.csv');
-                if (!response.ok) throw new Error("Нет файла data.csv");
-                
-                const text = await response.text();
-                const lines = text.split('\n');
-                
-                let hasItems = false;
-
-                lines.forEach(line => {
-                    // Разделяем по точке с запятой (как мы делали в консоли)
-                    const parts = line.split(';');
-                    if (parts.length >= 2) {
-                        const name = parts[0].trim();
-                        const img = parts[1].trim();
-
-                        if (name && img.startsWith('http')) {
-                            hasItems = true;
-                            const card = document.createElement('div');
-                            card.className = 'card';
-                            card.innerHTML = `
-                                <img src="${img}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=No+Photo'">
-                                <h3>${name}</h3>
-                                <button class="btn" onclick="order('${name}')">ВЫБРАТЬ</button>
-                            `;
-                            container.appendChild(card);
-                        }
-                    }
-                });
-
-                if (hasItems) {
-                    loader.style.display = 'none';
-                } else {
-                    loader.innerText = "ТОВАРЫ НЕ НАЙДЕНЫ В CSV";
-                }
-
-            } catch (err) {
-                loader.innerText = "ОШИБКА: ЗАГРУЗИТЕ data.csv НА GITHUB";
-                console.error(err);
-            }
-        }
-
-        function order(productName) {
-            // Отправляем данные боту и закрываем окно
-            tg.sendData(productName);
+        function startOrder() {
+            // Закрываем мини-апп и отправляем техническое сообщение боту
+            tg.sendData("START_ORDER_FLOW");
             tg.close();
         }
-
-        loadData();
     </script>
 </body>
 </html>
