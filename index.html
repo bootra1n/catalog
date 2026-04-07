@@ -1,41 +1,87 @@
-<script>
-        async function loadCatalog() {
-            try {
-                const response = await fetch('data.csv');
-                const csvText = await response.text();
-                const rows = csvText.split('\n');
-                const container = document.getElementById('catalog');
-                container.innerHTML = '';
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>XV Store</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root { --main-color: #d4af37; --bg-color: #1a1a1a; --card-bg: #2c2c2c; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg-color); color: white; margin: 0; padding: 10px; -webkit-user-select: none; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 20px; }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 8px; text-align: center; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; }
+        .card img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; background: #000; }
+        .card h3 { font-size: 12px; margin: 8px 0; height: 34px; overflow: hidden; color: #ccc; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .btn { background: var(--main-color); color: black; border: none; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; width: 100%; transition: 0.2s; }
+        .btn:active { transform: scale(0.95); opacity: 0.8; }
+        #loading { text-align: center; margin-top: 50px; color: var(--main-color); font-weight: bold; }
+    </style>
+</head>
+<body>
 
-                rows.forEach(row => {
-                    const columns = row.split(';'); // Используем точку с запятой
-                    if (columns.length >= 2) {
-                        const name = columns[0].trim();
-                        const img = columns[1].trim();
+    <div id="loading">ЗАГРУЗКА КАТАЛОГА...</div>
+    <div class="grid" id="catalog"></div>
+
+    <script>
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        async function loadData() {
+            const container = document.getElementById('catalog');
+            const loader = document.getElementById('loading');
+
+            try {
+                // Пытаемся загрузить ваш CSV файл
+                const response = await fetch('data.csv');
+                if (!response.ok) throw new Error("Нет файла data.csv");
+                
+                const text = await response.text();
+                const lines = text.split('\n');
+                
+                let hasItems = false;
+
+                lines.forEach(line => {
+                    // Разделяем по точке с запятой (как мы делали в консоли)
+                    const parts = line.split(';');
+                    if (parts.length >= 2) {
+                        const name = parts[0].trim();
+                        const img = parts[1].trim();
 
                         if (name && img.startsWith('http')) {
+                            hasItems = true;
                             const card = document.createElement('div');
                             card.className = 'card';
                             card.innerHTML = `
-                                <img src="${img}" onerror="this.src='https://via.placeholder.com/150'">
+                                <img src="${img}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=No+Photo'">
                                 <h3>${name}</h3>
-                                <button class="btn" onclick="sendOrder('${name}')">Выбрать</button>
+                                <button class="btn" onclick="order('${name}')">ВЫБРАТЬ</button>
                             `;
                             container.appendChild(card);
                         }
                     }
                 });
-                document.getElementById('status').style.display = 'none';
-            } catch (e) {
-                document.getElementById('status').innerText = "Ошибка: загрузите data.csv на GitHub";
+
+                if (hasItems) {
+                    loader.style.display = 'none';
+                } else {
+                    loader.innerText = "ТОВАРЫ НЕ НАЙДЕНЫ В CSV";
+                }
+
+            } catch (err) {
+                loader.innerText = "ОШИБКА: ЗАГРУЗИТЕ data.csv НА GITHUB";
+                console.error(err);
             }
         }
-        
-        function sendOrder(name) {
-            if (window.Telegram && window.Telegram.WebApp) {
-                window.Telegram.WebApp.sendData(name);
-                window.Telegram.WebApp.close();
-            }
+
+        function order(productName) {
+            // Отправляем данные боту и закрываем окно
+            tg.sendData(productName);
+            tg.close();
         }
-        loadCatalog();
+
+        loadData();
     </script>
+</body>
+</html>
