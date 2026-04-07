@@ -3,55 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catalog</title>
+    <title>XV Catalog</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #1a1a1a; color: white; margin: 0; padding: 15px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .card { background: #2c2c2c; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; }
+        .card { background: #2c2c2c; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; display: flex; flex-direction: column; justify-content: space-between; }
         .card img { width: 100%; border-radius: 8px; height: 140px; object-fit: cover; background: #000; }
-        .card h3 { font-size: 12px; margin: 10px 0; height: 30px; overflow: hidden; color: #eee; }
+        .card h3 { font-size: 12px; margin: 10px 0; min-height: 30px; color: #eee; }
         .btn { display: block; background: #d4af37; color: black; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; width: 100%; }
         #status { text-align: center; margin-top: 20px; color: #d4af37; }
     </style>
 </head>
 <body>
     <h2 style="text-align: center; color: #d4af37;">XV Catalog</h2>
-    <div id="status">Загрузка данных (их много, подождите)...</div>
+    <div id="status">Загрузка товаров из базы...</div>
     <div class="grid" id="catalog"></div>
 
     <script>
-        // Используем ссылку htmlview, которую ты прислал
-        const URL = 'https://docs.google.com/spreadsheets/d/1qlHWEkGHqrR_WT_g1-ogpKZn88c1xloEq5sDjszK3Kg/htmlview';
+        // Файл data.html должен лежать в той же папке на GitHub, что и этот index.html
+        const DATA_FILE = 'data.html'; 
 
         async function loadCatalog() {
             try {
-                // Пытаемся получить HTML код страницы через прокси, чтобы обойти защиту браузера
-                const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(URL));
-                const data = await response.json();
-                const html = data.contents;
+                const response = await fetch(DATA_FILE);
+                if (!response.ok) throw new Error("Файл не найден");
                 
+                const htmlText = await response.text();
                 const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const rows = doc.querySelectorAll('tr');
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                
+                // Ищем все строки таблицы внутри сохраненного файла
+                const rows = doc.querySelectorAll('tr'); 
                 const container = document.getElementById('catalog');
                 container.innerHTML = '';
 
-                // Проходим по всем строкам таблицы (их там тысячи)
-                rows.forEach((row, index) => {
+                let count = 0;
+
+                rows.forEach((row) => {
                     const cells = row.querySelectorAll('td');
+                    // Проверяем, что в строке есть хотя бы 2 колонки
                     if (cells.length >= 2) {
                         const name = cells[0].innerText.trim();
                         let img = cells[1].innerText.trim();
 
-                        // Фильтруем мусор (пустые строки и заголовки)
-                        if (name.length > 2 && (img.includes('http') || img.includes('IMAGE'))) {
-                            
-                            // Если внутри IMAGE("ссылка"), достаем только ссылку
-                            if (img.includes('IMAGE("')) {
-                                img = img.split('IMAGE("')[1].split('")')[0];
-                            }
+                        // Если ссылка спрятана в формуле IMAGE("..."), достаем её
+                        if (img.includes('IMAGE("')) {
+                            img = img.split('IMAGE("')[1].split('")')[0];
+                        }
 
+                        // Проверяем, что это не пустая строка и есть ссылка на фото
+                        if (name.length > 1 && img.startsWith('http')) {
+                            count++;
                             const card = document.createElement('div');
                             card.className = 'card';
                             card.innerHTML = `
@@ -64,26 +67,33 @@
                     }
                 });
 
-                if (container.children.length === 0) {
-                    document.getElementById('status').innerText = "Не удалось загрузить товары автоматически.";
+                if (count === 0) {
+                    document.getElementById('status').innerText = "Товары не найдены в файле data.html";
                 } else {
                     document.getElementById('status').style.display = 'none';
                 }
 
             } catch (e) {
                 console.error(e);
-                document.getElementById('status').innerText = "Ошибка сети. Попробуйте обновить страницу.";
+                document.getElementById('status').innerText = "Ошибка: загрузите файл data.html в репозиторий!";
             }
         }
 
         function sendOrder(name) {
-            window.Telegram.WebApp.sendData(name);
-            window.Telegram.WebApp.close();
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.sendData(name);
+                window.Telegram.WebApp.close();
+            } else {
+                alert("Заказ: " + name + " (Работает только внутри Telegram)");
+            }
         }
 
         loadCatalog();
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
+        
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+        }
     </script>
 </body>
 </html>
