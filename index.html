@@ -2,39 +2,28 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XV ARCHIVE</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { font-family: -apple-system, system-ui, sans-serif; background: #0b0b0b; color: white; margin: 0; padding: 12px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .card { background: #181818; border-radius: 14px; padding: 10px; text-align: center; border: 1px solid #2a2a2a; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .card { background: #181818; border-radius: 14px; padding: 10px; text-align: center; border: 1px solid #2a2a2a; display: flex; flex-direction: column; }
         .card img { width: 100%; border-radius: 10px; height: 160px; object-fit: cover; background: #121212; margin-bottom: 10px; }
-        .card h3 { font-size: 13px; margin: 5px 0; height: 34px; overflow: hidden; color: #fff; line-height: 1.3; font-weight: 500; }
+        .card h3 { font-size: 13px; margin: 5px 0; height: 34px; overflow: hidden; color: #fff; line-height: 1.3; }
         .price { color: #d4af37; font-weight: 800; font-size: 16px; margin-bottom: 12px; }
-        .btn { background: #d4af37; color: #000; padding: 11px; border-radius: 8px; font-weight: 700; border: none; width: 100%; cursor: pointer; transition: 0.2s; }
-        .btn:active { transform: scale(0.95); background: #b8962d; }
+        .btn { background: #d4af37; color: #000; padding: 11px; border-radius: 8px; font-weight: 700; border: none; width: 100%; cursor: pointer; }
     </style>
 </head>
 <body>
-    <h2 style="text-align: center; color: #d4af37; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px;">XV ARCHIVE</h2>
-    <div class="grid" id="catalog">Загрузка каталога...</div>
+    <h2 style="text-align: center; color: #d4af37; font-size: 20px; letter-spacing: 1px; margin-bottom: 20px;">XV ARCHIVE</h2>
+    <div class="grid" id="catalog">Загрузка...</div>
 
     <script>
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTI2BkeAt7A2aCoWhS4ybHRY7sORrfDPcv9NiHaJ-kiD4_a3eOSnsnQKLGFsSta37IoXPJmAGBhCao4/pub?output=csv';
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
-
-        // ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ КАРТИНКИ ПО ID
-        function getImgUrl(link) {
-            if (!link) return '';
-            const idMatch = link.match(/id=(\d+)/);
-            if (!idMatch) return '';
-            const itemId = idMatch[1];
-            
-            // Основной прокси для Weidian/Taobao
-            return `https://image.clothes666.com/get_image?id=${itemId}`;
-        }
 
         async function load() {
             try {
@@ -46,7 +35,6 @@
 
                 rows.forEach(row => {
                     const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                    
                     const render = (nIdx, lIdx, pIdx) => {
                         let name = cols[nIdx]?.replace(/"/g, '').trim().split(/[\r\n]/)[0] || '';
                         let link = cols[lIdx]?.replace(/"/g, '').trim() || '';
@@ -57,13 +45,11 @@
                             const card = document.createElement('div');
                             card.className = 'card';
                             
-                            // Пытаемся загрузить через основной прокси, если не выйдет - через Mulebuy
-                            const imgPrimary = getImgUrl(link);
-                            const imgFallback = `https://img.mulebuy.com/img/item/proxy?url=${encodeURIComponent(link)}`;
+                            // Мы собираем прямую ссылку на фото через проверенный сервис
+                            const imgUrl = `https://image.clothes666.com/get_image?id=${itemId}`;
 
                             card.innerHTML = `
-                                <img src="${imgPrimary}" 
-                                     onerror="this.onerror=null; this.src='${imgFallback}';">
+                                <img src="${imgUrl}" onerror="this.src='https://via.placeholder.com/150?text=XV+Archive'">
                                 <h3>${name}</h3>
                                 <div class="price">${price}</div>
                                 <button class="btn" onclick="order('${name.replace(/'/g, "\\'")}','${link}')">Выбрать</button>
@@ -71,17 +57,13 @@
                             container.appendChild(card);
                         }
                     };
-
-                    // Левый товар: A(0), C(2), D(3) | Правый товар: F(5), H(7), I(8)
-                    render(0, 2, 3);
-                    render(5, 7, 8);
+                    // Твои колонки: A(0)=Имя, C(2)=Ссылка, D(3)=Цена. Вторая пачка: F(5), H(7), I(8)
+                    render(0, 2, 3); render(5, 7, 8);
                 });
-            } catch (e) { document.getElementById('catalog').innerText = "Ошибка данных"; }
+            } catch (e) { document.getElementById('catalog').innerText = "Ошибка загрузки"; }
         }
 
-        function order(name, link) {
-            tg.sendData(JSON.stringify({name, link}));
-        }
+        function order(name, link) { tg.sendData(JSON.stringify({name, link})); }
         load();
     </script>
 </body>
