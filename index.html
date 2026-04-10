@@ -3,88 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XV ARCHIVE CATALOG</title>
+    <title>XV ARCHIVE</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { font-family: sans-serif; background: #1a1a1a; color: white; margin: 0; padding: 10px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .card { background: #2c2c2c; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; display: flex; flex-direction: column; justify-content: space-between; }
-        .card img { width: 100%; border-radius: 8px; height: 130px; object-fit: cover; background: #3d3d3d; }
-        .card h3 { font-size: 12px; margin: 8px 0; height: 30px; overflow: hidden; color: #eee; line-height: 1.2; }
-        .price { color: #d4af37; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
-        .btn { background: #d4af37; color: black; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; font-size: 13px; }
-        .btn:active { opacity: 0.8; }
+        .card img { width: 100%; border-radius: 8px; height: 130px; object-fit: cover; background: #333; }
+        .card h3 { font-size: 12px; margin: 8px 0; height: 32px; overflow: hidden; line-height: 1.2; }
+        .price { color: #d4af37; font-weight: bold; font-size: 14px; margin-bottom: 8px; }
+        .btn { background: #d4af37; color: black; padding: 8px; border-radius: 6px; font-weight: bold; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
-    <h2 style="text-align: center; color: #d4af37; font-size: 18px;">XV ARCHIVE</h2>
-    <div class="grid" id="catalog">Загрузка каталога...</div>
+    <h2 style="text-align: center; color: #d4af37;">XV ARCHIVE</h2>
+    <div class="grid" id="catalog">Загрузка...</div>
 
     <script>
-        // Твоя ссылка на CSV
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTI2BkeAt7A2aCoWhS4ybHRY7sORrfDPcv9NiHaJ-kiD4_a3eOSnsnQKLGFsSta37IoXPJmAGBhCao4/pub?output=csv';
-
         const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
+        tg.ready(); tg.expand();
 
-        function getPhoto(link) {
-            if (!link) return '';
-            const idMatch = link.match(/id=(\d+)/);
-            return idMatch ? `https://p16-oec-va.ibyteimg.com/tos-alisg-i-v9999/${idMatch[1]}` : '';
-        }
-
-        async function loadCatalog() {
+        async function load() {
             try {
-                const response = await fetch(CSV_URL);
-                const data = await response.text();
-                // Разбиваем на строки и убираем пустые
-                const rows = data.split('\n').filter(row => row.trim() !== '').slice(1);
+                const res = await fetch(CSV_URL);
+                const text = await res.text();
+                const rows = text.split('\n').slice(1);
                 const container = document.getElementById('catalog');
                 container.innerHTML = '';
 
                 rows.forEach(row => {
-                    // Разделяем колонки, учитывая кавычки
                     const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    
+                    const addItem = (nIdx, lIdx, pIdx) => {
+                        let name = cols[nIdx]?.replace(/"/g, '').trim().split(/[\r\n]/)[0];
+                        let link = cols[lIdx]?.replace(/"/g, '').trim();
+                        let price = cols[pIdx]?.replace(/"/g, '').trim();
 
-                    const processItem = (nameIdx, linkIdx, priceIdx) => {
-                        let name = cols[nameIdx] ? cols[nameIdx].replace(/"/g, '').trim() : '';
-                        let link = cols[linkIdx] ? cols[linkIdx].replace(/"/g, '').trim() : '';
-                        let price = cols[priceIdx] ? cols[priceIdx].replace(/"/g, '').trim() : '';
-
-                        // Если в названии несколько строк (как "35 colorways"), берем только первую
-                        if (name.includes('\r')) name = name.split('\r')[0];
-                        if (name.includes('\n')) name = name.split('\n')[0];
-
-                        if (name && link && link.includes('http')) {
-                            const img = getPhoto(link);
+                        if (name && link?.includes('http')) {
+                            const id = link.match(/id=(\d+)/)?.[1];
+                            const img = id ? `https://p16-oec-va.ibyteimg.com/tos-alisg-i-v9999/${id}` : '';
                             const card = document.createElement('div');
                             card.className = 'card';
                             card.innerHTML = `
                                 <img src="${img}" onerror="this.src='https://via.placeholder.com/150?text=No+Photo'">
                                 <h3>${name}</h3>
                                 <div class="price">${price}</div>
-                                <button class="btn" onclick="sendOrder('${name}', '${link}')">Выбрать</button>
+                                <button class="btn" onclick="send('${name}','${link}')">Выбрать</button>
                             `;
                             container.appendChild(card);
                         }
                     };
-
-                    // Товар 1: Колонки A (0), C (2), D (3)
-                    processItem(0, 2, 3);
-                    // Товар 2: Колонки F (5), H (7), I (8)
-                    processItem(5, 7, 8);
+                    addItem(0, 2, 3); // Левый товар
+                    addItem(5, 7, 8); // Правый товар
                 });
-            } catch (e) {
-                document.getElementById('catalog').innerText = "Ошибка загрузки";
-            }
+            } catch (e) { container.innerText = "Ошибка загрузки"; }
         }
 
-        function sendOrder(name, link) {
-            tg.sendData(JSON.stringify({ name: name, link: link }));
+        function send(name, link) {
+            tg.sendData(JSON.stringify({name, link}));
         }
-
-        loadCatalog();
+        load();
     </script>
 </body>
 </html>
