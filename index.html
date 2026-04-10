@@ -21,22 +21,26 @@
     <div class="grid" id="catalog">Загрузка товаров...</div>
 
     <script>
+        // Твоя ссылка на опубликованный CSV
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTI2BkeAt7A2aCoWhS4ybHRY7sORrfDPcv9NiHaJ-kiD4_a3eOSnsnQKLGFsSta37IoXPJmAGBhCao4/pub?output=csv';
+        
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
+        // Улучшенная функция получения фото
         function getImg(link) {
             if (!link) return '';
-            const id = link.match(/id=(\d+)/);
-            // Используем проверенный сервер для получения фото по ID товара
-            return id ? `https://p16-oec-va.ibyteimg.com/tos-alisg-i-v9999/${id[1]}` : '';
+            const idMatch = link.match(/id=(\d+)/);
+            if (!idMatch) return '';
+            // Прокси-сервер Mulebuy для вытягивания превью
+            return `https://img.mulebuy.com/img/item/proxy?url=https%3A%2F%2Fitem.taobao.com%2Fitem.htm%3Fid%3D${idMatch[1]}`;
         }
 
         async function load() {
             try {
                 const res = await fetch(CSV_URL);
                 const text = await res.text();
-                // Разбиваем на строки, учитывая возможные переносы внутри ячеек
+                // Разбиваем на строки, игнорируя запятые внутри кавычек
                 const rows = text.split(/\r?\n(?=(?:(?:[^"]*"){2})*[^"]*$)/).slice(1);
                 const container = document.getElementById('catalog');
                 container.innerHTML = '';
@@ -49,31 +53,38 @@
                         let link = cols[lIdx] ? cols[lIdx].replace(/"/g, '').trim() : '';
                         let price = cols[pIdx] ? cols[pIdx].replace(/"/g, '').trim() : '';
 
-                        // ГЛАВНОЕ: берем только первую строку из ячейки (до переноса строки)
+                        // Берем только первую строку из ячейки названия
                         let cleanName = rawName.split(/[\r\n]/)[0].trim();
 
                         if (cleanName && link.includes('http')) {
+                            const itemId = link.match(/id=(\d+)/)?.[1] || '';
                             const card = document.createElement('div');
                             card.className = 'card';
                             card.innerHTML = `
-                                <img src="${getImg(link)}" onerror="this.src='https://via.placeholder.com/150?text=XV+Archive'">
+                                <img src="${getImg(link)}" 
+                                     onerror="this.onerror=null; this.src='https://image.clothes666.com/get_image?id=${itemId}';">
                                 <h3>${cleanName}</h3>
                                 <div class="price">${price}</div>
-                                <button class="btn" onclick="order('${cleanName}','${link}')">Выбрать</button>
+                                <button class="btn" onclick="order('${cleanName.replace(/'/g, "\\'")}','${link}')">Выбрать</button>
                             `;
                             container.appendChild(card);
                         }
                     };
 
-                    render(0, 2, 3); // Левая колонка
-                    render(5, 7, 8); // Правая колонка
+                    render(0, 2, 3); // Левый товар (A, C, D)
+                    render(5, 7, 8); // Правый товар (F, H, I)
                 });
-            } catch (e) { container.innerText = "Ошибка обновления"; }
+            } catch (e) { 
+                console.error(e);
+                document.getElementById('catalog').innerText = "Ошибка обновления данных"; 
+            }
         }
 
         function order(name, link) {
-            tg.sendData(JSON.stringify({name, link}));
+            // Отправляем JSON боту
+            tg.sendData(JSON.stringify({name: name, link: link}));
         }
+
         load();
     </script>
 </body>
