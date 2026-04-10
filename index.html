@@ -6,27 +6,24 @@
     <title>XV ARCHIVE CATALOG</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; background: #1a1a1a; color: white; margin: 0; padding: 15px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        body { font-family: sans-serif; background: #1a1a1a; color: white; margin: 0; padding: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .card { background: #2c2c2c; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; display: flex; flex-direction: column; justify-content: space-between; }
-        .card img { width: 100%; border-radius: 8px; height: 140px; object-fit: cover; background: #3d3d3d; }
-        .card h3 { font-size: 13px; margin: 10px 0; height: 32px; overflow: hidden; color: #eee; }
-        .price { color: #d4af37; font-weight: bold; margin-bottom: 8px; }
-        .btn { display: block; background: #d4af37; color: black; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; }
-        .category-tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
-        .tab { padding: 8px 15px; background: #333; border-radius: 20px; font-size: 12px; white-space: nowrap; cursor: pointer; }
-        .tab.active { background: #d4af37; color: black; }
+        .card img { width: 100%; border-radius: 8px; height: 130px; object-fit: cover; background: #3d3d3d; }
+        .card h3 { font-size: 12px; margin: 8px 0; height: 30px; overflow: hidden; color: #eee; line-height: 1.2; }
+        .price { color: #d4af37; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
+        .btn { background: #d4af37; color: black; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; font-size: 13px; }
+        .btn:active { opacity: 0.8; }
     </style>
 </head>
 <body>
-    <h2 style="text-align: center; color: #d4af37;">XV ARCHIVE</h2>
-    
-    <div class="grid" id="catalog">Загрузка товаров...</div>
+    <h2 style="text-align: center; color: #d4af37; font-size: 18px;">XV ARCHIVE</h2>
+    <div class="grid" id="catalog">Загрузка каталога...</div>
 
     <script>
-        // Твоя рабочая ссылка CSV
+        // Твоя ссылка на CSV
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTI2BkeAt7A2aCoWhS4ybHRY7sORrfDPcv9NiHaJ-kiD4_a3eOSnsnQKLGFsSta37IoXPJmAGBhCao4/pub?output=csv';
-        
+
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
@@ -34,31 +31,31 @@
         function getPhoto(link) {
             if (!link) return '';
             const idMatch = link.match(/id=(\d+)/);
-            if (idMatch) {
-                // Прямая ссылка на фото через ID для Weidian
-                return `https://p16-oec-va.ibyteimg.com/tos-alisg-i-v9999/${idMatch[1]}`;
-            }
-            return '';
+            return idMatch ? `https://p16-oec-va.ibyteimg.com/tos-alisg-i-v9999/${idMatch[1]}` : '';
         }
 
         async function loadCatalog() {
             try {
                 const response = await fetch(CSV_URL);
                 const data = await response.text();
-                const rows = data.split('\n').slice(1); // Пропускаем шапку
+                // Разбиваем на строки и убираем пустые
+                const rows = data.split('\n').filter(row => row.trim() !== '').slice(1);
                 const container = document.getElementById('catalog');
                 container.innerHTML = '';
 
                 rows.forEach(row => {
-                    // Сложный сплит для учета кавычек в CSV
+                    // Разделяем колонки, учитывая кавычки
                     const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                    
-                    // Функция отрисовки карточки
-                    const createCard = (nameIdx, linkIdx, priceIdx) => {
-                        const name = cols[nameIdx] ? cols[nameIdx].replace(/"/g, '').trim() : '';
-                        const link = cols[linkIdx] ? cols[linkIdx].replace(/"/g, '').trim() : '';
-                        const price = cols[priceIdx] ? cols[priceIdx].replace(/"/g, '').trim() : '';
-                        
+
+                    const processItem = (nameIdx, linkIdx, priceIdx) => {
+                        let name = cols[nameIdx] ? cols[nameIdx].replace(/"/g, '').trim() : '';
+                        let link = cols[linkIdx] ? cols[linkIdx].replace(/"/g, '').trim() : '';
+                        let price = cols[priceIdx] ? cols[priceIdx].replace(/"/g, '').trim() : '';
+
+                        // Если в названии несколько строк (как "35 colorways"), берем только первую
+                        if (name.includes('\r')) name = name.split('\r')[0];
+                        if (name.includes('\n')) name = name.split('\n')[0];
+
                         if (name && link && link.includes('http')) {
                             const img = getPhoto(link);
                             const card = document.createElement('div');
@@ -67,25 +64,24 @@
                                 <img src="${img}" onerror="this.src='https://via.placeholder.com/150?text=No+Photo'">
                                 <h3>${name}</h3>
                                 <div class="price">${price}</div>
-                                <button class="btn" onclick="order('${name}', '${link}')">Выбрать</button>
+                                <button class="btn" onclick="sendOrder('${name}', '${link}')">Выбрать</button>
                             `;
                             container.appendChild(card);
                         }
                     };
 
-                    // Читаем левый ряд (A, C, D)
-                    createCard(0, 2, 3);
-                    // Читаем правый ряд (F, H, I)
-                    createCard(5, 7, 8);
+                    // Товар 1: Колонки A (0), C (2), D (3)
+                    processItem(0, 2, 3);
+                    // Товар 2: Колонки F (5), H (7), I (8)
+                    processItem(5, 7, 8);
                 });
             } catch (e) {
-                document.getElementById('catalog').innerText = "Ошибка загрузки данных";
+                document.getElementById('catalog').innerText = "Ошибка загрузки";
             }
         }
 
-        function order(name, link) {
-            const result = JSON.stringify({ name: name, link: link });
-            tg.sendData(result);
+        function sendOrder(name, link) {
+            tg.sendData(JSON.stringify({ name: name, link: link }));
         }
 
         loadCatalog();
