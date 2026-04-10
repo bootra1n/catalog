@@ -6,61 +6,72 @@
     <title>XV ARCHIVE</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; background: #1a1a1a; color: white; margin: 0; padding: 10px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .card { background: #2c2c2c; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; display: flex; flex-direction: column; justify-content: space-between; }
-        .card img { width: 100%; border-radius: 8px; height: 130px; object-fit: cover; background: #333; }
-        .card h3 { font-size: 12px; margin: 8px 0; height: 32px; overflow: hidden; line-height: 1.2; }
-        .price { color: #d4af37; font-weight: bold; font-size: 14px; margin-bottom: 8px; }
-        .btn { background: #d4af37; color: black; padding: 8px; border-radius: 6px; font-weight: bold; border: none; cursor: pointer; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #121212; color: white; margin: 0; padding: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .card { background: #1e1e1e; border-radius: 12px; padding: 8px; text-align: center; border: 1px solid #333; display: flex; flex-direction: column; }
+        .card img { width: 100%; border-radius: 8px; height: 140px; object-fit: cover; background: #252525; margin-bottom: 8px; }
+        .card h3 { font-size: 13px; margin: 5px 0; height: 32px; overflow: hidden; color: #fff; line-height: 1.2; font-weight: 500; }
+        .price { color: #d4af37; font-weight: bold; font-size: 15px; margin: 5px 0 10px 0; }
+        .btn { background: #d4af37; color: #000; padding: 10px; border-radius: 8px; font-weight: 700; border: none; cursor: pointer; font-size: 13px; width: 100%; }
+        .btn:active { transform: scale(0.96); opacity: 0.9; }
     </style>
 </head>
 <body>
-    <h2 style="text-align: center; color: #d4af37;">XV ARCHIVE</h2>
-    <div class="grid" id="catalog">Загрузка...</div>
+    <h2 style="text-align: center; color: #d4af37; font-size: 18px; letter-spacing: 1px;">XV ARCHIVE</h2>
+    <div class="grid" id="catalog">Загрузка товаров...</div>
 
     <script>
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTI2BkeAt7A2aCoWhS4ybHRY7sORrfDPcv9NiHaJ-kiD4_a3eOSnsnQKLGFsSta37IoXPJmAGBhCao4/pub?output=csv';
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
+        function getImg(link) {
+            if (!link) return '';
+            const id = link.match(/id=(\d+)/);
+            // Используем проверенный сервер для получения фото по ID товара
+            return id ? `https://p16-oec-va.ibyteimg.com/tos-alisg-i-v9999/${id[1]}` : '';
+        }
+
         async function load() {
             try {
                 const res = await fetch(CSV_URL);
                 const text = await res.text();
-                const rows = text.split('\n').slice(1);
+                // Разбиваем на строки, учитывая возможные переносы внутри ячеек
+                const rows = text.split(/\r?\n(?=(?:(?:[^"]*"){2})*[^"]*$)/).slice(1);
                 const container = document.getElementById('catalog');
                 container.innerHTML = '';
 
                 rows.forEach(row => {
                     const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
                     
-                    const addItem = (nIdx, lIdx, pIdx) => {
-                        let name = cols[nIdx]?.replace(/"/g, '').trim().split(/[\r\n]/)[0];
-                        let link = cols[lIdx]?.replace(/"/g, '').trim();
-                        let price = cols[pIdx]?.replace(/"/g, '').trim();
+                    const render = (nIdx, lIdx, pIdx) => {
+                        let rawName = cols[nIdx] ? cols[nIdx].replace(/"/g, '').trim() : '';
+                        let link = cols[lIdx] ? cols[lIdx].replace(/"/g, '').trim() : '';
+                        let price = cols[pIdx] ? cols[pIdx].replace(/"/g, '').trim() : '';
 
-                        if (name && link?.includes('http')) {
-                            const id = link.match(/id=(\d+)/)?.[1];
-                            const img = id ? `https://p16-oec-va.ibyteimg.com/tos-alisg-i-v9999/${id}` : '';
+                        // ГЛАВНОЕ: берем только первую строку из ячейки (до переноса строки)
+                        let cleanName = rawName.split(/[\r\n]/)[0].trim();
+
+                        if (cleanName && link.includes('http')) {
                             const card = document.createElement('div');
                             card.className = 'card';
                             card.innerHTML = `
-                                <img src="${img}" onerror="this.src='https://via.placeholder.com/150?text=No+Photo'">
-                                <h3>${name}</h3>
+                                <img src="${getImg(link)}" onerror="this.src='https://via.placeholder.com/150?text=XV+Archive'">
+                                <h3>${cleanName}</h3>
                                 <div class="price">${price}</div>
-                                <button class="btn" onclick="send('${name}','${link}')">Выбрать</button>
+                                <button class="btn" onclick="order('${cleanName}','${link}')">Выбрать</button>
                             `;
                             container.appendChild(card);
                         }
                     };
-                    addItem(0, 2, 3); // Левый товар
-                    addItem(5, 7, 8); // Правый товар
+
+                    render(0, 2, 3); // Левая колонка
+                    render(5, 7, 8); // Правая колонка
                 });
-            } catch (e) { container.innerText = "Ошибка загрузки"; }
+            } catch (e) { container.innerText = "Ошибка обновления"; }
         }
 
-        function send(name, link) {
+        function order(name, link) {
             tg.sendData(JSON.stringify({name, link}));
         }
         load();
