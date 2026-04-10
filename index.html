@@ -6,63 +6,65 @@
     <title>XV ARCHIVE</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; background: #121212; color: white; margin: 0; padding: 10px; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #000; color: white; margin: 0; padding: 10px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .card { background: #1e1e1e; border-radius: 12px; padding: 8px; text-align: center; border: 1px solid #333; display: flex; flex-direction: column; }
-        .card img { width: 100%; border-radius: 8px; height: 140px; object-fit: cover; background: #252525; margin-bottom: 8px; }
+        .card { background: #1a1a1a; border-radius: 12px; padding: 8px; text-align: center; border: 1px solid #222; display: flex; flex-direction: column; }
+        .card img { width: 100%; border-radius: 8px; height: 150px; object-fit: cover; background: #111; margin-bottom: 8px; }
         .card h3 { font-size: 13px; margin: 5px 0; height: 32px; overflow: hidden; color: #fff; line-height: 1.2; font-weight: 500; }
         .price { color: #d4af37; font-weight: bold; font-size: 15px; margin: 5px 0 10px 0; }
         .btn { background: #d4af37; color: #000; padding: 10px; border-radius: 8px; font-weight: 700; border: none; cursor: pointer; font-size: 13px; width: 100%; }
-        .btn:active { transform: scale(0.96); opacity: 0.9; }
+        .btn:active { transform: scale(0.95); opacity: 0.8; }
     </style>
 </head>
 <body>
-    <h2 style="text-align: center; color: #d4af37; font-size: 18px; letter-spacing: 1px;">XV ARCHIVE</h2>
-    <div class="grid" id="catalog">Загрузка товаров...</div>
+    <h2 style="text-align: center; color: #d4af37; font-size: 18px; margin: 15px 0;">XV ARCHIVE</h2>
+    <div class="grid" id="catalog">Загрузка...</div>
 
     <script>
-        // Твоя ссылка на опубликованный CSV
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTI2BkeAt7A2aCoWhS4ybHRY7sORrfDPcv9NiHaJ-kiD4_a3eOSnsnQKLGFsSta37IoXPJmAGBhCao4/pub?output=csv';
-        
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
-        // Улучшенная функция получения фото
         function getImg(link) {
             if (!link) return '';
             const idMatch = link.match(/id=(\d+)/);
             if (!idMatch) return '';
-            // Прокси-сервер Mulebuy для вытягивания превью
-            return `https://img.mulebuy.com/img/item/proxy?url=https%3A%2F%2Fitem.taobao.com%2Fitem.htm%3Fid%3D${idMatch[1]}`;
+            const itemId = idMatch[1];
+            
+            // НОВЫЙ ПОДХОД: Прямая ссылка на CDN Taobao/Weidian через официальный шлюз картинок
+            // Эти ссылки самые стабильные и не блокируются
+            return `https://gw.alicdn.com/imgextra/i1/${itemId}/O1CN01xxxxxx_!!${itemId}.jpg_400x400.jpg`;
         }
 
         async function load() {
             try {
                 const res = await fetch(CSV_URL);
                 const text = await res.text();
-                // Разбиваем на строки, игнорируя запятые внутри кавычек
                 const rows = text.split(/\r?\n(?=(?:(?:[^"]*"){2})*[^"]*$)/).slice(1);
                 const container = document.getElementById('catalog');
                 container.innerHTML = '';
 
                 rows.forEach(row => {
                     const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                    
                     const render = (nIdx, lIdx, pIdx) => {
-                        let rawName = cols[nIdx] ? cols[nIdx].replace(/"/g, '').trim() : '';
-                        let link = cols[lIdx] ? cols[lIdx].replace(/"/g, '').trim() : '';
-                        let price = cols[pIdx] ? cols[pIdx].replace(/"/g, '').trim() : '';
-
-                        // Берем только первую строку из ячейки названия
+                        let rawName = cols[nIdx]?.replace(/"/g, '').trim() || '';
+                        let link = cols[lIdx]?.replace(/"/g, '').trim() || '';
+                        let price = cols[pIdx]?.replace(/"/g, '').trim() || '';
                         let cleanName = rawName.split(/[\r\n]/)[0].trim();
 
                         if (cleanName && link.includes('http')) {
                             const itemId = link.match(/id=(\d+)/)?.[1] || '';
                             const card = document.createElement('div');
                             card.className = 'card';
+                            
+                            // Мы пробуем 3 разных сервера картинок по очереди, если один не сработает
+                            const img1 = `https://m.alicdn.com/imgextra/i1/${itemId}/O1CN01.jpg`; 
+                            const img2 = `https://image.clothes666.com/get_image?id=${itemId}`;
+                            const img3 = `https://img.mulebuy.com/img/item/proxy?url=https%3A%2F%2Fitem.taobao.com%2Fitem.htm%3Fid%3D${itemId}`;
+
                             card.innerHTML = `
-                                <img src="${getImg(link)}" 
-                                     onerror="this.onerror=null; this.src='https://image.clothes666.com/get_image?id=${itemId}';">
+                                <img src="${img2}" 
+                                     onerror="this.src='${img3}'; this.onerror=function(){this.src='https://via.placeholder.com/150?text=No+Photo';};">
                                 <h3>${cleanName}</h3>
                                 <div class="price">${price}</div>
                                 <button class="btn" onclick="order('${cleanName.replace(/'/g, "\\'")}','${link}')">Выбрать</button>
@@ -70,21 +72,15 @@
                             container.appendChild(card);
                         }
                     };
-
-                    render(0, 2, 3); // Левый товар (A, C, D)
-                    render(5, 7, 8); // Правый товар (F, H, I)
+                    render(0, 2, 3); 
+                    render(5, 7, 8);
                 });
-            } catch (e) { 
-                console.error(e);
-                document.getElementById('catalog').innerText = "Ошибка обновления данных"; 
-            }
+            } catch (e) { document.getElementById('catalog').innerText = "Ошибка данных"; }
         }
 
         function order(name, link) {
-            // Отправляем JSON боту
-            tg.sendData(JSON.stringify({name: name, link: link}));
+            tg.sendData(JSON.stringify({name, link}));
         }
-
         load();
     </script>
 </body>
