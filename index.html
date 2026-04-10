@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="no-referrer">
     <title>XV ARCHIVE</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { font-family: -apple-system, system-ui, sans-serif; background: #0b0b0b; color: white; margin: 0; padding: 12px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -20,6 +21,10 @@
     <div class="grid" id="catalog">Загрузка...</div>
 
     <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTI2BkeAt7A2aCoWhS4ybHRY7sORrfDPcv9NiHaJ-kiD4_a3eOSnsnQKLGFsSta37IoXPJmAGBhCao4/pub?output=csv';
 
         async function loadCatalog() {
@@ -35,6 +40,35 @@
                     const renderCard = (nI, iI, lI, pI) => {
                         let n = cols[nI]?.replace(/"/g, '').trim();
                         let i = cols[iI]?.replace(/"/g, '').trim();
+                        let l = cols[lI]?.replace(/"/g, '').trim();
+                        let p = cols[pI]?.replace(/"/g, '').trim();
+                        if (n && l) {
+                            const card = document.createElement('div');
+                            card.className = 'card';
+                            const imgPath = i ? `https://wsrv.nl/?url=${encodeURIComponent(i)}&w=300` : '';
+                            card.innerHTML = `
+                                <img src="${imgPath}" onerror="this.src='https://via.placeholder.com/150'">
+                                <h3>${n}</h3>
+                                <div class="price">${p}</div>
+                                <button class="btn" onclick="sendOrder('${n.replace(/'/g, "\\'")}', '${l}')">Выбрать</button>
+                            `;
+                            container.appendChild(card);
+                        }
+                    };
+                    renderCard(0, 10, 2, 3); 
+                    renderCard(5, 11, 7, 8); 
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        function sendOrder(name, link) {
+            tg.sendData(JSON.stringify({ name, link }));
+        }
+
+        loadCatalog();
+    </script>
+</body>
+</html>                        let i = cols[iI]?.replace(/"/g, '').trim();
                         let l = cols[lI]?.replace(/"/g, '').trim();
                         let p = cols[pI]?.replace(/"/g, '').trim();
                         if (n && l) {
