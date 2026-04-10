@@ -2,62 +2,86 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>XV Concierge</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XV Archive Catalog</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --gold: #D4AF37; --black: #000; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
-            background: var(--black); color: white; margin: 0; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            height: 100vh; overflow: hidden; text-align: center;
-        }
-
-        .logo { font-size: 40px; font-weight: 200; letter-spacing: 10px; color: var(--gold); margin-bottom: 10px; }
-        .divider { width: 40px; height: 1px; background: var(--gold); margin-bottom: 20px; }
-        
-        .main-text { font-size: 18px; font-weight: 300; letter-spacing: 1px; margin-bottom: 5px; }
-        .sub-text { font-size: 12px; color: #666; margin-bottom: 40px; padding: 0 40px; line-height: 1.5; }
-
-        .step-box { background: #111; border: 1px solid #222; padding: 20px; border-radius: 15px; margin-bottom: 30px; width: 80%; }
-        .step { font-size: 11px; color: var(--gold); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; }
-        .step-desc { font-size: 13px; color: #ccc; }
-
-        .action-btn { 
-            background: var(--gold); color: black; border: none; 
-            padding: 18px 40px; border-radius: 50px; 
-            font-weight: 700; font-size: 14px; text-transform: uppercase; 
-            letter-spacing: 2px; cursor: pointer; transition: 0.3s;
-        }
-        .action-btn:active { transform: scale(0.95); opacity: 0.8; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #1a1a1a; color: white; margin: 0; padding: 15px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .card { background: #2c2c2c; border-radius: 15px; padding: 10px; text-align: center; border: 1px solid #3d3d3d; display: flex; flex-direction: column; justify-content: space-between; }
+        .card img { width: 100%; border-radius: 10px; height: 150px; object-fit: cover; background: #3d3d3d; }
+        .card h3 { font-size: 13px; margin: 10px 0; height: 32px; overflow: hidden; color: #eee; line-height: 1.2; }
+        .price { color: #d4af37; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
+        .btn { background: #d4af37; color: black; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; font-size: 14px; }
+        .btn:active { opacity: 0.8; transform: scale(0.98); }
+        h2 { text-align: center; color: #d4af37; font-size: 20px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
-
-    <div class="logo">XV</div>
-    <div class="divider"></div>
-    
-    <div class="main-text">PERSONAL CONCIERGE</div>
-    <div class="sub-text">Найдем любую вещь по фото. Лучшие батчи, прямая доставка от фабрик Китая.</div>
-
-    <div class="step-box">
-        <div class="step">Инструкция</div>
-        <div class="step-desc">Пришлите фото или ссылку на товар в чат, и мы найдем лучшую цену за 5 минут.</div>
-    </div>
-
-    <button class="action-btn" onclick="startOrder()">Отправить запрос</button>
+    <h2>XV ARCHIVE CATALOG</h2>
+    <div class="grid" id="catalog">Загрузка товаров...</div>
 
     <script>
+        // ВСТАВЬ СЮДА СВОЮ ССЫЛКУ НА ОПУБЛИКОВАННЫЙ CSV (Google Sheets)
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/1qlHWEkGHqrR_WT_g1-ogpKZn88c1xloEq5sDjszK3Kg/export?format=csv&gid=1947283332';
+
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
 
-        function startOrder() {
-            // Закрываем мини-апп и отправляем техническое сообщение боту
-            tg.sendData("START_ORDER_FLOW");
-            tg.close();
+        async function loadCatalog() {
+            try {
+                const response = await fetch(CSV_URL);
+                const data = await response.text();
+                // Разбиваем на строки, убираем пустые и пропускаем шапку
+                const rows = data.split('\n').filter(row => row.trim() !== '').slice(1);
+                const container = document.getElementById('catalog');
+                container.innerHTML = '';
+
+                rows.forEach(row => {
+                    // Регулярка для правильного разделения CSV с учетом запятых внутри кавычек
+                    const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    if (cols.length < 3) return;
+
+                    const name = cols[0].replace(/"/g, '').trim();
+                    const mulebuyLink = cols[2].replace(/"/g, '').trim();
+                    const price = cols[3] ? cols[3].replace(/"/g, '').trim() : "";
+
+                    // Вытаскиваем ID из ссылки Mulebuy для качественного фото
+                    let imgUrl = 'https://via.placeholder.com/150?text=No+Photo';
+                    const idMatch = mulebuyLink.match(/id=(\d+)/);
+                    if (idMatch && idMatch[1]) {
+                        // Используем ID для получения фото напрямую (пример для Weidian/Taobao через прокси-путь)
+                        imgUrl = `https://p16-oec-va.ibyteimg.com/tos-alisg-i-v9999/${idMatch[1]}`;
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.innerHTML = `
+                        <div>
+                            <img src="${imgUrl}" onerror="this.src='https://via.placeholder.com/150?text=Photo+Error'">
+                            <h3>${name}</h3>
+                            <div class="price">${price}</div>
+                        </div>
+                        <button class="btn" onclick="sendOrder('${name}', '${mulebuyLink}')">Выбрать</button>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                document.getElementById('catalog').innerHTML = 'Ошибка загрузки данных.';
+                console.error(error);
+            }
         }
+
+        function sendOrder(name, link) {
+            const data = JSON.stringify({
+                name: name,
+                link: link
+            });
+            tg.sendData(data); // Отправляем данные боту
+        }
+
+        loadCatalog();
     </script>
 </body>
 </html>
