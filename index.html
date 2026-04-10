@@ -22,10 +22,11 @@
     <div class="grid" id="catalog">Загрузка товаров...</div>
 
     <script>
-        // Твоя ссылка на CSV (убедись, что таблица опубликована: Файл -> Поделиться -> Опубликовать в интернете)
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTI2BkeAt7A2aCoWhS4ybHRY7sORrfDPcv9NiHaJ-kiD4_a3eOSnsnQKLGFsSta37IoXPJmAGBhCao4/pub?output=csv';
         
         const tg = window.Telegram.WebApp;
+        
+        // Сообщаем Telegram, что приложение готово
         tg.ready();
         tg.expand();
 
@@ -33,7 +34,7 @@
             try {
                 const response = await fetch(CSV_URL);
                 const data = await response.text();
-                // Разбиваем CSV на строки, игнорируя запятые внутри кавычек
+                // Разбиваем CSV, учитывая кавычки
                 const rows = data.split(/\r?\n(?=(?:(?:[^"]*"){2})*[^"]*$)/).slice(1);
                 const container = document.getElementById('catalog');
                 container.innerHTML = '';
@@ -51,30 +52,41 @@
                             const card = document.createElement('div');
                             card.className = 'card';
                             
-                            // Используем прокси wsrv.nl для обхода блокировок и быстрой загрузки
+                            // Прокси для фото
                             const safeImg = imgUrl ? `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}&w=300&output=webp` : 'https://via.placeholder.com/150?text=No+Photo';
 
                             card.innerHTML = `
                                 <img src="${safeImg}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=Error'">
                                 <h3>${name}</h3>
                                 <div class="price">${price}</div>
-                                <button class="btn" onclick="sendOrder('${name.replace(/'/g, "\\'")}','${link}')">Выбрать</button>
+                                <button class="btn" onclick="sendOrder('${name.replace(/'/g, "\\'")}', '${link}')">Выбрать</button>
                             `;
                             container.appendChild(card);
                         }
                     };
 
-                    // ИНДЕКСЫ КОЛОНОК (A=0, B=1 ... K=10, L=11)
-                    renderCard(0, 10, 2, 3); // Левая колонка (Имя A, Фото K, Ссылка C, Цена D)
-                    renderCard(5, 11, 7, 8); // Правая колонка (Имя F, Фото L, Ссылка H, Цена I)
+                    // Индексы колонок: A=0, K=10, C=2, D=3; F=5, L=11, H=7, I=8
+                    renderCard(0, 10, 2, 3); 
+                    renderCard(5, 11, 7, 8); 
                 });
             } catch (error) {
-                document.getElementById('catalog').innerHTML = '<p style="text-align:center">Ошибка загрузки данных</p>';
+                document.getElementById('catalog').innerHTML = '<p style="text-align:center">Ошибка загрузки</p>';
             }
         }
 
+        // Функция отправки данных боту
         function sendOrder(name, link) {
-            tg.sendData(JSON.stringify({ name, link }));
+            const orderData = JSON.stringify({
+                name: name,
+                link: link
+            });
+
+            // КРИТИЧЕСКАЯ ПРОВЕРКА: sendData работает только через KeyboardButton
+            if (tg.sendData) {
+                tg.sendData(orderData);
+            } else {
+                alert("Ошибка: Telegram.WebApp.sendData не найден. Убедитесь, что открыли магазин через КНОПКУ МЕНЮ в боте!");
+            }
         }
 
         loadCatalog();
