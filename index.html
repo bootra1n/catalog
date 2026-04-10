@@ -18,25 +18,22 @@
 </head>
 <body>
     <h2 style="text-align: center; color: #d4af37; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px;">XV ARCHIVE</h2>
-    <div class="grid" id="catalog">Загрузка товаров...</div>
+    <div class="grid" id="catalog">Загрузка каталога...</div>
 
     <script>
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTI2BkeAt7A2aCoWhS4ybHRY7sORrfDPcv9NiHaJ-kiD4_a3eOSnsnQKLGFsSta37IoXPJmAGBhCao4/pub?output=csv';
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
-        function getImg(link) {
+        // ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ КАРТИНКИ ПО ID
+        function getImgUrl(link) {
             if (!link) return '';
             const idMatch = link.match(/id=(\d+)/);
             if (!idMatch) return '';
             const itemId = idMatch[1];
             
-            // Если это Weidian (как на твоем скрине), используем правильный прокси
-            if (link.includes('weidian')) {
-                return `https://img.mulebuy.com/img/item/proxy?url=https%3A%2F%2Fweidian.com%2Fitem.html%3FitemID%3D${itemId}`;
-            }
-            // Если это Taobao/Tmall
-            return `https://img.mulebuy.com/img/item/proxy?url=https%3A%2F%2Fitem.taobao.com%2Fitem.htm%3Fid%3D${itemId}`;
+            // Основной прокси для Weidian/Taobao
+            return `https://image.clothes666.com/get_image?id=${itemId}`;
         }
 
         async function load() {
@@ -49,37 +46,42 @@
 
                 rows.forEach(row => {
                     const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    
                     const render = (nIdx, lIdx, pIdx) => {
-                        let rawName = cols[nIdx]?.replace(/"/g, '').trim() || '';
+                        let name = cols[nIdx]?.replace(/"/g, '').trim().split(/[\r\n]/)[0] || '';
                         let link = cols[lIdx]?.replace(/"/g, '').trim() || '';
                         let price = cols[pIdx]?.replace(/"/g, '').trim() || '';
-                        let cleanName = rawName.split(/[\r\n]/)[0].trim();
 
-                        if (cleanName && link.includes('id=')) {
+                        if (name && link.includes('id=')) {
                             const itemId = link.match(/id=(\d+)/)[1];
                             const card = document.createElement('div');
                             card.className = 'card';
                             
-                            // Цепочка загрузки: 1. Прокси Mulebuy -> 2. clothes666 -> 3. Заглушка
-                            const imgUrl = getImg(link);
-                            
+                            // Пытаемся загрузить через основной прокси, если не выйдет - через Mulebuy
+                            const imgPrimary = getImgUrl(link);
+                            const imgFallback = `https://img.mulebuy.com/img/item/proxy?url=${encodeURIComponent(link)}`;
+
                             card.innerHTML = `
-                                <img src="${imgUrl}" 
-                                     onerror="this.onerror=null; this.src='https://image.clothes666.com/get_image?id=${itemId}';">
-                                <h3>${cleanName}</h3>
+                                <img src="${imgPrimary}" 
+                                     onerror="this.onerror=null; this.src='${imgFallback}';">
+                                <h3>${name}</h3>
                                 <div class="price">${price}</div>
-                                <button class="btn" onclick="order('${cleanName.replace(/'/g, "\\'")}','${link}')">Выбрать</button>
+                                <button class="btn" onclick="order('${name.replace(/'/g, "\\'")}','${link}')">Выбрать</button>
                             `;
                             container.appendChild(card);
                         }
                     };
-                    // Колонки: A(0)=Имя, C(2)=Ссылка, D(3)=Цена. Вторая пачка: F(5), H(7), I(8)
-                    render(0, 2, 3); render(5, 7, 8);
+
+                    // Левый товар: A(0), C(2), D(3) | Правый товар: F(5), H(7), I(8)
+                    render(0, 2, 3);
+                    render(5, 7, 8);
                 });
-            } catch (e) { document.getElementById('catalog').innerText = "Ошибка загрузки"; }
+            } catch (e) { document.getElementById('catalog').innerText = "Ошибка данных"; }
         }
 
-        function order(name, link) { tg.sendData(JSON.stringify({name, link})); }
+        function order(name, link) {
+            tg.sendData(JSON.stringify({name, link}));
+        }
         load();
     </script>
 </body>
