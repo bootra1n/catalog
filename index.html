@@ -62,7 +62,8 @@
         }
 
         function sendOrder(name, link) {
-            tg.sendData(JSON.stringify({ name: name, link: link }));
+            const text = `Заказ: ${name}\nСсылка: ${link}`;
+            tg.openTelegramLink(`https://t.me/xvfashionbot?text=${encodeURIComponent(text)}`);
         }
 
         loadCatalog();
